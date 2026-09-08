@@ -1,0 +1,49 @@
+# Environment & Secret Files
+.env
+.env.local
+.env.*
+!.env.example
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python Byte-compiled / Cache Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution & Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing & Pytest Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & Temporary Data Files
+*.log
+data/raw/*
+!data/sample/
+!data/processed/
+
+# Trained Large Model Binaries (Exclude base directory, keep .gitkeep)
+models/*.pkl
+models/*.joblib
+!models/.gitkeep
+
+# IDEs & Operating System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

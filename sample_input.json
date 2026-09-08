@@ -1,0 +1,18 @@
+{
+  "timestamp":"2026-09-08T12:00:00+00:00",
+  "latitude":28.61,
+  "longitude":77.21,
+  "temperature_c":31.4,
+  "relative_humidity":68,
+  "pressure_hpa":1003,
+  "wind_speed_ms":2.1,
+  "wind_direction_deg":315,
+  "precipitation_mm":0,
+  "solar_radiation_wm2":650,
+  "cloud_cover_pct":20,
+  "pbl_height_m":540,
+  "pm25_ugm3":142.6,
+  "pm10_ugm3":218.4,
+  "o3_ugm3":61.2,
+  "fire_influence":0.45
+}

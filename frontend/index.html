@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AirSync — Physics-Informed Delhi-NCR Air Quality Forecasting System</title>
+  
+  <!-- Google Fonts & Leaflet CSS & Chart.js -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/dashboard/css/style.css" />
+</head>
+<body class="dark-theme">
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/>
+          <path d="M9.6 4.6A2 2 0 1 1 11 8H2"/>
+          <path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">AirSync <span class="badge-sih">SIH26082</span></h1>
+        <p class="brand-subtitle">Physics-Informed Atmospheric Forecasting Platform • Team Semantic Souls</p>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <div class="demo-badge" title="Running on synthetic Delhi-NCR scenario data">
+        <span class="pulse-dot"></span> SYNTHETIC DEMO MODE
+      </div>
+      <button id="btn-refresh" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Refresh Forecast
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Dashboard Container -->
+  <main class="dashboard-grid">
+
+    <!-- Row 1: Key Performance Metric Cards -->
+    <section class="metrics-row">
+      <!-- Card 1: AQI Gauge -->
+      <div class="glass-card metric-card">
+        <div class="card-label">Current / Init CPCB AQI</div>
+        <div class="aqi-display">
+          <div id="aqi-value" class="aqi-score severe">342</div>
+          <div>
+            <div id="aqi-category" class="aqi-tag severe">Very Poor</div>
+            <div id="aqi-dominant" class="sub-text">Dominant: PM2.5</div>
+          </div>
+        </div>
+        <div class="aqi-bar-bg"><div id="aqi-bar-fill" class="aqi-bar-fill" style="width: 68%;"></div></div>
+      </div>
+
+      <!-- Card 2: Ventilation Diagnostic -->
+      <div class="glass-card metric-card">
+        <div class="card-label">Ventilation Coefficient</div>
+        <div class="metric-value-group">
+          <div id="vc-value" class="metric-number">950 <span class="unit">m²/s</span></div>
+          <div id="vc-status" class="badge badge-warning">Poor Ventilation</div>
+        </div>
+        <p id="vc-desc" class="card-desc">VC &lt; 1500 m²/s indicates atmospheric stagnation trapping emissions near ground level.</p>
+      </div>
+
+      <!-- Card 3: Inversion vs Accumulation Status -->
+      <div class="glass-card metric-card">
+        <div class="card-label">Atmospheric Stability Diagnostics</div>
+        <div class="stability-grid">
+          <div class="diag-item">
+            <span class="diag-label">Inversion Status:</span>
+            <span id="inv-status-pill" class="badge badge-neutral">Data Unavailable</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Accumulation Risk:</span>
+            <span id="accum-status-pill" class="badge badge-danger">High Accumulation</span>
+          </div>
+        </div>
+        <p class="card-desc">Note: Inversion requires vertical temp profile; accumulation potential derived from PBL height & wind.</p>
+      </div>
+
+      <!-- Card 4: Episode Peak Summary -->
+      <div class="glass-card metric-card highlight-card">
+        <div class="card-label">Severe Episode Forecast</div>
+        <div id="episode-status-badge" class="badge badge-danger">EPISODE ACTIVE</div>
+        <div class="episode-times">
+          <div><span class="lbl">Peak AQI:</span> <strong id="ep-peak-aqi">385</strong></div>
+          <div><span class="lbl">Peak Time:</span> <strong id="ep-peak-time">Today, 22:00</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 2: Scenario Control Bar -->
+    <section class="glass-card scenario-bar">
+      <div class="scenario-controls">
+        <label for="select-scenario" class="select-label">Forecast Scenario Preset:</label>
+        <select id="select-scenario" class="custom-select">
+          <option value="stagnant_winter" selected>Stagnant Winter Episode (Shallow PBL + Low Wind)</option>
+          <option value="biomass_fire_influence">Upwind Stubble Fire Surge (NW Winds)</option>
+          <option value="high_wind_clearing">High Wind Dispersion (Westerly Clearing)</option>
+          <option value="monsoon_scavenging">Monsoon Precipitation Wash-out</option>
+          <option value="normal_baseline">Normal Baseline Conditions</option>
+        </select>
+
+        <label for="select-station" class="select-label">Station:</label>
+        <select id="select-station" class="custom-select">
+          <option value="DEL001">Anand Vihar, Delhi</option>
+          <option value="DEL002">R.K. Puram, Delhi</option>
+          <option value="DEL003">Punjabi Bagh, Delhi</option>
+          <option value="DEL004">ITO, Delhi</option>
+          <option value="NCR001">Sector 62, Noida</option>
+          <option value="NCR002">Vikas Sadan, Gurugram</option>
+        </select>
+      </div>
+
+      <div class="model-toggle">
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-ml-residual" checked>
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Apply ML Residual Correction (Stage 2)</span>
+      </div>
+    </section>
+
+    <!-- Row 3: 72-Hour Timeline Chart & Drivers Section -->
+    <section class="main-content-row">
+      <!-- Left Column: 72h Chart -->
+      <div class="glass-card chart-container">
+        <div class="card-header">
+          <h2>72-Hour Hourly Forecast Timeline</h2>
+          <div class="chart-legend-custom">
+            <span class="legend-dot pm25"></span> PM2.5
+            <span class="legend-dot pm10"></span> PM10
+            <span class="legend-dot o3"></span> O3
+            <span class="legend-dot aqi"></span> CPCB AQI
+          </div>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="forecastChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Right Column: "WHY?" Explainability Panel -->
+      <div class="glass-card explain-panel">
+        <div class="card-header">
+          <h2>WHY is pollution changing?</h2>
+          <span id="dominant-driver-badge" class="badge badge-warning">POOR VENTILATION</span>
+        </div>
+        <p id="narrative-summary" class="narrative-text">Loading physics drivers...</p>
+        
+        <div id="drivers-list" class="drivers-list">
+          <!-- Dynamic Driver Cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 4: Delhi-NCR Map & Biomass Plume Simulator -->
+    <section class="map-plume-row">
+      <!-- Left: Delhi-NCR Spatial Map -->
+      <div class="glass-card map-container">
+        <div class="card-header">
+          <h2>WHERE will pollution move? (Delhi-NCR Spatial Station Map)</h2>
+        </div>
+        <div id="map" class="map-view"></div>
+      </div>
+
+      <!-- Right: Fire Plume Simulator -->
+      <div class="glass-card plume-simulator">
+        <div class="card-header">
+          <h2>NASA FIRMS Fire Plume Trajectory Simulator</h2>
+        </div>
+        <p class="card-desc">Kinematic 2D advection trajectory & dispersion buffer estimation for downwind stubble fires.</p>
+        
+        <form id="form-plume" class="plume-form">
+          <div class="form-row">
+            <div>
+              <label>Fire Lat</label>
+              <input type="number" step="0.01" id="plume-lat" value="30.31" class="custom-input">
+            </div>
+            <div>
+              <label>Fire Lon</label>
+              <input type="number" step="0.01" id="plume-lon" value="75.98" class="custom-input">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Wind Speed (m/s)</label>
+              <input type="number" step="0.1" id="plume-speed" value="3.5" class="custom-input">
+            </div>
+            <div>
+              <label>Wind Dir (° FROM)</label>
+              <input type="number" step="1" id="plume-dir" value="315" class="custom-input">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>FRP Intensity (MW)</label>
+              <input type="number" step="10" id="plume-frp" value="180" class="custom-input">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-accent full-width">Simulate Plume Trajectory</button>
+        </form>
+
+        <div id="plume-output" class="plume-output">
+          <div class="plume-score-box">
+            <span>Potential Downwind Influence Score:</span>
+            <strong id="plume-score">0.78 / 1.0</strong>
+          </div>
+          <p class="disclaimer-text">*Kinematic 2D transport envelope proxy, NOT a 3D Eulerian chemistry model.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>AirSync © 2026 Smart India Hackathon (Problem ID: SIH26082) • Built by Team Semantic Souls</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/dashboard/js/app.js"></script>
+</body>
+</html>
