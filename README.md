@@ -230,7 +230,10 @@ AirSync operates via an end-to-end, multi-stage pipeline coupling atmospheric ph
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                       10. PRESENTATION & INTEGRATION LAYER                             │
 │  • FastAPI REST Backend (`/forecast/72h`, `/explain`, `/episode`, `/plume`, `/aqi`)    │
-│  ## 📐 Mathematical & Physical Formulas Used
+│________________________________________________________________________________________|
+
+
+ ## 📐 Mathematical & Physical Formulas Used
 
 AirSync combines atmospheric mass balance physics, diagnostic indicators, and machine learning error models. All formulas are presented below with readable text representations, standard math blocks, and physical unit definitions:
 
