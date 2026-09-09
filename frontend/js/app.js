@@ -21,12 +21,24 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-ml-residual").addEventListener("change", loadForecastData);
   document.getElementById("form-plume").addEventListener("submit", handlePlumeSimulation);
 
-  function initMap() {
+  async function initMap() {
     // Center on Delhi-NCR (28.6139 N, 77.2090 E)
     mapInstance = L.map("map").setView([28.6139, 77.2090], 10);
 
+    // Fetch CARTO API key from backend config
+    let tileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    try {
+      const configResp = await fetch("/config/map");
+      const config = await configResp.json();
+      if (config.carto_api_key) {
+        tileUrl += `?key=${config.carto_api_key}`;
+      }
+    } catch (e) {
+      console.warn("Could not load map config, using default tile URL:", e);
+    }
+
     // Dark Tile Layer
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer(tileUrl, {
       attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
       maxZoom: 18,
     }).addTo(mapInstance);

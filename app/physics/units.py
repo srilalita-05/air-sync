@@ -13,7 +13,7 @@ UNITS = {
     "no2": "µg/m³",
     "so2": "µg/m³",
     "co": "mg/m³",
-    
+
     # Meteorological Variables
     "temperature": "°C",
     "relative_humidity": "%",
@@ -27,7 +27,7 @@ UNITS = {
     "cloud_cover": "%",
     "pbl_height": "m (Planetary Boundary Layer height)",
     "vertical_temperature_gradient": "°C/100m or °C difference",
-    
+
     # Physical Diagnostic Terms
     "ventilation_coefficient": "m²/s (wind_speed * pbl_height)",
     "characteristic_domain_length": "m (domain diameter / scale length)",
@@ -36,7 +36,7 @@ UNITS = {
     "wet_scavenging_rate": "s⁻¹ (Lambda = a * R^b)",
     "dispersion_timescale": "s (L / U)",
     "timestep": "s (standard forecast step = 3600 s)",
-    
+
     # Fire & Plume Properties
     "fire_radiative_power": "MW (FIRMS FRP)",
     "downwind_distance": "m",

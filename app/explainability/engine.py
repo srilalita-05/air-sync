@@ -17,14 +17,14 @@ def generate_explanation(
     pollutant_baseline: Dict[str, float]
 ) -> Dict[str, Any]:
     """Generates structured driver attribution breakdown from actual model inputs and physics diagnostics.
-    
+
     Returns:
         - dominant_driver: str
         - drivers: List of driver dicts (name, severity, value, unit, description)
         - narrative_summary: Human readable text
     """
     drivers: List[Dict[str, Any]] = []
-    
+
     speed = float(weather_input.get("wind_speed_ms", 2.0))
     pbl = float(weather_input.get("pbl_height_m", 800.0))
     precip = float(weather_input.get("precipitation_mm", 0.0))
@@ -32,12 +32,12 @@ def generate_explanation(
     solar = float(weather_input.get("solar_radiation_wm2", 0.0))
     fire = float(weather_input.get("fire_influence", 0.0))
     rh = float(weather_input.get("relative_humidity", 50.0))
-    
+
     vc = physics_diagnostics.get("ventilation_coefficient_m2s", speed * pbl)
     accum = physics_diagnostics.get("accumulation", {})
     inversion = physics_diagnostics.get("inversion", {})
     photo = physics_diagnostics.get("photochemical_activity_proxy", 0.0)
-    
+
     # 1. Ventilation Driver
     if vc <= 800.0:
         drivers.append({
@@ -92,7 +92,8 @@ def generate_explanation(
             "description": "Shallow boundary layer (< 300 m) compresses pollutants into a small atmospheric volume.",
         })
 
-    # 4. Thermal Inversion (ONLY if vertical temperature data is available and detected)
+    # 4. Thermal Inversion (ONLY if vertical temperature data is available and
+    # detected)
     if inversion.get("inversion_detected") is True:
         lapse = inversion.get("lapse_rate_c_100m", 0.0)
         drivers.append({
@@ -147,21 +148,37 @@ def generate_explanation(
     else:
         # Sort by severity rank: critical > high > moderate > beneficial
         rank_order = {"critical": 4, "high": 3, "moderate": 2, "beneficial": 1}
-        sorted_drivers = sorted(drivers, key=lambda d: rank_order.get(d["severity"], 0), reverse=True)
+        sorted_drivers = sorted(
+            drivers, key=lambda d: rank_order.get(
+                d["severity"], 0), reverse=True)
         dominant = sorted_drivers[0]["name"]
 
     # Generate Human Readable Narrative
     narrative_parts = []
-    if dominant in ["severe_stagnation", "poor_ventilation", "low_pbl", "thermal_inversion"]:
-        narrative_parts.append(f"Pollution accumulation is driven by atmospheric trapping (Ventilation VC = {vc:.0f} m²/s, PBLH = {pbl:.0f} m).")
+    if dominant in [
+        "severe_stagnation",
+        "poor_ventilation",
+        "low_pbl",
+            "thermal_inversion"]:
+        narrative_parts.append(
+            f"Pollution accumulation is driven by atmospheric trapping (Ventilation VC = {
+                vc:.0f} m²/s, PBLH = {
+                pbl:.0f} m).")
     elif dominant == "upwind_fire_influence":
-        narrative_parts.append(f"Pollution rise is heavily impacted by upwind biomass burning stubble fires.")
+        narrative_parts.append(
+            f"Pollution rise is heavily impacted by upwind biomass burning stubble fires.")
     elif dominant == "photochemical_o3_peak":
-        narrative_parts.append(f"Ozone surge is driven by strong midday solar radiation ({solar:.0f} W/m²) and warmth ({temp:.1f} °C).")
+        narrative_parts.append(
+            f"Ozone surge is driven by strong midday solar radiation ({
+                solar:.0f} W/m²) and warmth ({
+                temp:.1f} °C).")
     elif dominant == "rainfall_scavenging":
-        narrative_parts.append(f"Pollution reduction is driven by wet scavenging rainfall removal ({precip:.1f} mm/h).")
+        narrative_parts.append(
+            f"Pollution reduction is driven by wet scavenging rainfall removal ({
+                precip:.1f} mm/h).")
     else:
-        narrative_parts.append("Atmospheric dispersion and emission conditions are at baseline levels.")
+        narrative_parts.append(
+            "Atmospheric dispersion and emission conditions are at baseline levels.")
 
     return {
         "dominant_driver": dominant,

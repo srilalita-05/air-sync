@@ -9,36 +9,39 @@ from typing import Dict, Any, Optional
 from app.aqi.breakpoints import CPCB_BREAKPOINTS, CPCB_CATEGORIES
 
 
-def calculate_sub_index(concentration: Optional[float], pollutant_key: str) -> Optional[float]:
+def calculate_sub_index(
+        concentration: Optional[float],
+        pollutant_key: str) -> Optional[float]:
     """Calculates CPCB AQI sub-index for a given pollutant concentration.
-    
+
     Formula:
         Ip = I_low + ((I_high - I_low) / (C_high - C_low)) * (Cp - C_low)
     """
     if concentration is None or concentration < 0:
         return None
-        
+
     key = pollutant_key.lower()
     if key not in CPCB_BREAKPOINTS:
         return None
-        
+
     ranges = CPCB_BREAKPOINTS[key]["ranges"]
-    
+
     # Check lower boundary
     if concentration <= ranges[0][0]:
         return float(ranges[0][2])
-        
+
     for c_low, c_high, i_low, i_high in ranges:
         if c_low <= concentration <= c_high:
-            sub = i_low + ((i_high - i_low) / (c_high - c_low)) * (concentration - c_low)
+            sub = i_low + ((i_high - i_low) / (c_high - c_low)
+                           ) * (concentration - c_low)
             return round(sub, 1)
-            
+
     # Beyond highest breakpoint (severe extension)
     max_c_high = ranges[-1][1]
     max_i_high = ranges[-1][3]
     if concentration > max_c_high:
         return 500.0
-        
+
     return None
 
 
@@ -62,7 +65,7 @@ def calculate_indian_aqi(
     pb: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Calculates overall CPCB Indian AQI and sub-indices for all available pollutants.
-    
+
     Returns:
         - overall_aqi: int (maximum of sub-indices)
         - dominant_pollutant: str (pollutant giving the highest sub-index)
@@ -82,10 +85,10 @@ def calculate_indian_aqi(
         "nh3": nh3,
         "pb": pb,
     }
-    
+
     sub_indices: Dict[str, Optional[float]] = {}
     valid_subs: Dict[str, float] = {}
-    
+
     for key, conc in inputs.items():
         if conc is not None:
             sub = calculate_sub_index(conc, key)
@@ -95,7 +98,7 @@ def calculate_indian_aqi(
                 valid_subs[display_name] = sub
         else:
             sub_indices[key] = None
-            
+
     if not valid_subs:
         return {
             "overall_aqi": None,
@@ -106,12 +109,12 @@ def calculate_indian_aqi(
             "concentrations": inputs,
             "reference": "CPCB National Air Quality Index Guidelines (2014)",
         }
-        
+
     # Dominant pollutant is the one with the maximum sub-index
     dominant_name = max(valid_subs, key=lambda k: valid_subs[k])
     overall_aqi = round(valid_subs[dominant_name])
     category_info = get_aqi_category(overall_aqi)
-    
+
     return {
         "overall_aqi": overall_aqi,
         "dominant_pollutant": dominant_name,

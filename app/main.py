@@ -5,12 +5,15 @@ Problem Statement: SIH26082 (Air Pollution–Weather Coupled Forecasting System 
 Team: Semantic Souls (SIH 2026)
 """
 
+from app.api.routes import router as api_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from app.api.routes import router as api_router
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file into environment
+
 
 app = FastAPI(
     title="AirSync Forecasting Backend",
@@ -33,9 +36,18 @@ app.add_middleware(
 app.include_router(api_router)
 
 # Mount frontend directory if it exists
-frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+frontend_dir = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "frontend"))
 if os.path.exists(frontend_dir):
-    app.mount("/dashboard", StaticFiles(directory=frontend_dir, html=True), name="dashboard")
+    app.mount(
+        "/dashboard",
+        StaticFiles(
+            directory=frontend_dir,
+            html=True),
+        name="dashboard")
 
 
 @app.get("/")

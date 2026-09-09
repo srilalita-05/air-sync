@@ -12,8 +12,10 @@ Provides endpoints for:
 - POST /data/validate
 - POST /model/train
 - GET  /model/status
+- GET  /config/map
 """
 
+import os
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional
@@ -62,16 +64,19 @@ def single_step_forecast(inp: WeatherInputSchema):
     """Calculates a single 1-hour step forecast given meteorological & initial pollutant inputs."""
     val_res = validate_and_clean_input(inp.model_dump())
     if not val_res["is_valid"]:
-        raise HTTPException(status_code=400, detail=f"Missing required fields: {val_res['missing_required_variables']}")
-        
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required fields: {
+                val_res['missing_required_variables']}")
+
     cleaned = val_res["cleaned_data"]
     phys_out = estimate_pollutants(inp)
     diagnostics = phys_out["diagnostics"]
-    
+
     res_pm25 = 0.0
     res_pm10 = 0.0
     res_o3 = 0.0
-    
+
     if ml_residual_engine.is_trained:
         feats = ml_residual_engine.extract_features(
             weather_forecast_step=cleaned,
@@ -86,14 +91,17 @@ def single_step_forecast(inp: WeatherInputSchema):
         res_pm25 = ml_residual_engine.predict_residual("pm25", feats)
         res_pm10 = ml_residual_engine.predict_residual("pm10", feats)
         res_o3 = ml_residual_engine.predict_residual("o3", feats)
-        
+
     final_pm25 = max(0.0, phys_out["pm25_ugm3"] + res_pm25)
     final_pm10 = max(0.0, phys_out["pm10_ugm3"] + res_pm10)
     final_o3 = max(0.0, phys_out["o3_ugm3"] + res_o3)
-    
-    aqi_out = calculate_indian_aqi(pm25=final_pm25, pm10=final_pm10, o3=final_o3)
-    explanation = generate_explanation(cleaned, diagnostics, {"pm25": final_pm25, "pm10": final_pm10, "o3": final_o3})
-    
+
+    aqi_out = calculate_indian_aqi(
+        pm25=final_pm25, pm10=final_pm10, o3=final_o3)
+    explanation = generate_explanation(
+        cleaned, diagnostics, {
+            "pm25": final_pm25, "pm10": final_pm10, "o3": final_o3})
+
     return {
         "timestamp": inp.timestamp,
         "pollutants": {
@@ -133,7 +141,7 @@ def forecast_72h(req: Forecast72hRequest):
             station_id=req.station_id or "DEL001"
         )
         timeline = synth["timeline"]
-        
+
     res = run_72h_forecast(timeline, use_ml_residual=req.use_ml_residual)
     return res
 
@@ -145,7 +153,11 @@ def explain_drivers(req: ExplainRequest):
     cleaned = val["cleaned_data"]
     phys = estimate_pollutants(req.weather_input)
     diagnostics = phys["diagnostics"]
-    exp = generate_explanation(cleaned, diagnostics, {"pm25": phys["pm25_ugm3"], "pm10": phys["pm10_ugm3"], "o3": phys["o3_ugm3"]})
+    exp = generate_explanation(
+        cleaned, diagnostics,
+        {"pm25": phys["pm25_ugm3"],
+         "pm10": phys["pm10_ugm3"],
+         "o3": phys["o3_ugm3"]})
     return {
         "timestamp": req.weather_input.timestamp,
         "explanation": exp,
@@ -156,7 +168,9 @@ def explain_drivers(req: ExplainRequest):
 @router.post("/episode")
 def detect_episode(req: EpisodeRequest):
     """Analyzes a 72-hour forecast timeline to detect episode onset, peak, recovery timestamps."""
-    return detect_pollution_episodes(req.forecast_timeline, threshold_aqi=req.threshold_aqi)
+    return detect_pollution_episodes(
+        req.forecast_timeline,
+        threshold_aqi=req.threshold_aqi)
 
 
 @router.post("/plume")
@@ -179,8 +193,14 @@ def simulate_plume(req: PlumeRequest):
 def compute_aqi(req: AqiRequest):
     """Standalone CPCB Indian AQI calculator for given pollutant concentrations."""
     return calculate_indian_aqi(
-        pm25=req.pm25, pm10=req.pm10, o3=req.o3, no2=req.no2, so2=req.so2, co=req.co, nh3=req.nh3, pb=req.pb
-    )
+        pm25=req.pm25,
+        pm10=req.pm10,
+        o3=req.o3,
+        no2=req.no2,
+        so2=req.so2,
+        co=req.co,
+        nh3=req.nh3,
+        pb=req.pb)
 
 
 @router.post("/data/validate")
@@ -192,17 +212,21 @@ def validate_data(raw_payload: Dict[str, Any]):
 @router.post("/model/train")
 def train_model():
     """Retrains the ML residual correction model using synthetic paired historical dataset."""
-    # Generate synthetic training dataset with paired observations and physics forecasts
+    # Generate synthetic training dataset with paired observations and physics
+    # forecasts
     synth = generate_synthetic_scenario("stagnant_winter", horizon_hours=200)
     records = []
-    
+
     for pt in synth["timeline"]:
         phys = estimate_pollutants(pt)
         # Create synthetic noise/bias
-        obs_pm25 = phys["pm25_ugm3"] + 15.0 * np.sin(pt["hour"] / 4.0) + 5.0 * np.random.randn()
-        obs_pm10 = phys["pm10_ugm3"] + 25.0 * np.sin(pt["hour"] / 4.0) + 8.0 * np.random.randn()
-        obs_o3 = phys["o3_ugm3"] + 8.0 * np.cos(pt["hour"] / 6.0) + 3.0 * np.random.randn()
-        
+        obs_pm25 = phys["pm25_ugm3"] + 15.0 * \
+            np.sin(pt["hour"] / 4.0) + 5.0 * np.random.randn()
+        obs_pm10 = phys["pm10_ugm3"] + 25.0 * \
+            np.sin(pt["hour"] / 4.0) + 8.0 * np.random.randn()
+        obs_o3 = phys["o3_ugm3"] + 8.0 * \
+            np.cos(pt["hour"] / 6.0) + 3.0 * np.random.randn()
+
         row = {
             "timestamp": pt["timestamp"],
             "wind_speed_ms": pt["wind_speed_ms"],
@@ -230,7 +254,7 @@ def train_model():
             "day_of_week": 1.0,
         }
         records.append(row)
-        
+
     df_train = pd.DataFrame(records)
     res = ml_residual_engine.train(df_train)
     return res
@@ -242,6 +266,17 @@ def model_status():
     return {
         "residual_model": "trained" if ml_residual_engine.is_trained else "not_trained",
         "validation_metrics": ml_residual_engine.metrics if ml_residual_engine.is_trained else None,
-        "supported_pollutants": ["pm25", "pm10", "o3"],
+        "supported_pollutants": [
+            "pm25",
+            "pm10",
+            "o3"],
         "no_data_leakage_enforced": True,
     }
+
+
+@router.get("/config/map")
+def map_config():
+    """Returns frontend map configuration including tile provider API keys."""
+    carto_key = os.getenv("CARTO_API_KEY", "")
+    return {"carto_api_key": carto_key if carto_key !=
+            "your_carto_api_key_here" else "", }

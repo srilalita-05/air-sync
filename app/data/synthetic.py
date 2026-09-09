@@ -30,7 +30,7 @@ def generate_synthetic_scenario(
     station_id: str = "DEL001"
 ) -> Dict[str, Any]:
     """Generates a 72-hour synthetic weather and pollution scenario.
-    
+
     Supported scenario_type values:
     - "stagnant_winter": Low wind, shallow nocturnal PBL, high baseline PM2.5 (Severe Episode)
     - "low_pbl_inversion": Shallow mixing layer with strong nocturnal accumulation
@@ -39,32 +39,37 @@ def generate_synthetic_scenario(
     - "biomass_fire_influence": Upwind stubble burning surge pushing PM2.5 up downwind
     - "normal_baseline": Moderate seasonal baseline
     """
-    station = next((s for s in DELHI_NCR_STATIONS if s["id"] == station_id), DELHI_NCR_STATIONS[0])
-    
+    station = next(
+        (s for s in DELHI_NCR_STATIONS if s["id"] == station_id),
+        DELHI_NCR_STATIONS[0])
+
     start_dt = datetime.fromisoformat(start_time_iso.replace("Z", "+00:00"))
     timeline: List[Dict[str, Any]] = []
-    
+
     for h in range(horizon_hours + 1):
         dt_current = start_dt + timedelta(hours=h)
         hour_of_day = dt_current.hour
-        
+
         # Diurnal diurnal temperature cycle (min at 6 AM, max at 2 PM)
         temp_base = 18.0 if "winter" in scenario_type else 28.0
-        temp = temp_base + 6.0 * (1.0 - math.cos(2.0 * math.pi * (hour_of_day - 6) / 24.0))
-        
+        temp = temp_base + 6.0 * \
+            (1.0 - math.cos(2.0 * math.pi * (hour_of_day - 6) / 24.0))
+
         # Diurnal solar radiation (peak at noon ~12 PM)
-        solar = max(0.0, 750.0 * math.sin(math.pi * (hour_of_day - 6) / 12.0)) if (6 <= hour_of_day <= 18) else 0.0
-        
+        solar = max(0.0, 750.0 * math.sin(math.pi * (hour_of_day -
+                    6) / 12.0)) if (6 <= hour_of_day <= 18) else 0.0
+
         # Scenario specific meteorology & pollution profiles
         if scenario_type == "stagnant_winter":
             wind_speed = 1.0 + 0.5 * math.sin(hour_of_day / 4.0)
             wind_dir = 300.0  # North-westerly
             # Diurnal PBL: collapses to 150m at night, rises to 600m afternoon
-            pbl = 150.0 + 450.0 * max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0)) if (6 <= hour_of_day <= 18) else 150.0
+            pbl = 150.0 + 450.0 * max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0)) if (
+                6 <= hour_of_day <= 18) else 150.0
             precip = 0.0
             rh = 75.0 + 15.0 * (1.0 - (solar / 750.0))
             fire = 0.4
-            
+
             # Initial CPCB anchor observations at origin (t=0)
             init_pm25 = 220.0 + 60.0 * math.sin(h / 12.0)
             init_pm10 = 340.0 + 80.0 * math.sin(h / 12.0)
@@ -73,11 +78,12 @@ def generate_synthetic_scenario(
         elif scenario_type == "high_wind_clearing":
             wind_speed = 6.5 + 1.5 * math.sin(hour_of_day / 3.0)
             wind_dir = 270.0
-            pbl = 1200.0 + 600.0 * max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
+            pbl = 1200.0 + 600.0 * \
+                max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
             precip = 0.0
             rh = 40.0
             fire = 0.0
-            
+
             init_pm25 = max(20.0, 90.0 - 1.0 * h)
             init_pm10 = max(40.0, 140.0 - 1.5 * h)
             init_o3 = 45.0 + 20.0 * (solar / 750.0)
@@ -89,7 +95,7 @@ def generate_synthetic_scenario(
             precip = 6.0 if (12 <= h <= 36) else 0.5  # Heavy rain block
             rh = 90.0
             fire = 0.0
-            
+
             init_pm25 = max(15.0, 70.0 - 1.8 * h)
             init_pm10 = max(30.0, 110.0 - 2.5 * h)
             init_o3 = 20.0
@@ -97,11 +103,12 @@ def generate_synthetic_scenario(
         elif scenario_type == "biomass_fire_influence":
             wind_speed = 2.0
             wind_dir = 315.0  # Directly from Punjab/Haryana stubble burning corridor
-            pbl = 350.0 + 300.0 * max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
+            pbl = 350.0 + 300.0 * \
+                max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
             precip = 0.0
             rh = 60.0
             fire = 0.85  # Strong fire signal
-            
+
             init_pm25 = 180.0 + 3.0 * h  # Accumulating plume
             init_pm10 = 280.0 + 4.5 * h
             init_o3 = 40.0
@@ -109,11 +116,12 @@ def generate_synthetic_scenario(
         else:  # normal_baseline
             wind_speed = 3.0 + 1.0 * math.sin(hour_of_day / 6.0)
             wind_dir = 280.0
-            pbl = 400.0 + 800.0 * max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
+            pbl = 400.0 + 800.0 * \
+                max(0.0, math.sin(math.pi * (hour_of_day - 6) / 12.0))
             precip = 0.0
             rh = 55.0
             fire = 0.1
-            
+
             init_pm25 = 65.0 + 15.0 * math.sin(hour_of_day / 4.0)
             init_pm10 = 110.0 + 25.0 * math.sin(hour_of_day / 4.0)
             init_o3 = 35.0 + 35.0 * (solar / 750.0)

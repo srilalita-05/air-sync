@@ -9,7 +9,8 @@ Reference:
 
 from typing import Dict, List, Tuple
 
-# Each entry is a list of tuples: (Conc_Low, Conc_High, AQI_Low, AQI_High, Averaging_Period)
+# Each entry is a list of tuples: (Conc_Low, Conc_High, AQI_Low, AQI_High,
+# Averaging_Period)
 CPCB_BREAKPOINTS: Dict[str, Dict[str, Any]] = {
     "pm25": {
         "pollutant_name": "PM2.5",

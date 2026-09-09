@@ -14,16 +14,17 @@ from typing import Dict, List, Any, Optional
 
 def detect_pollution_episodes(
     forecast_timeline: List[Dict[str, Any]],
-    threshold_aqi: float = 201.0,  # Default threshold: AQI >= 201 (CPCB Poor Category)
+    # Default threshold: AQI >= 201 (CPCB Poor Category)
+    threshold_aqi: float = 201.0,
 ) -> Dict[str, Any]:
     """Analyzes a 72-hour forecast timeline array to detect pollution episodes dynamically.
-    
+
     Each item in forecast_timeline is expected to contain:
         - timestamp: str
         - aqi: float / int
         - drivers: dict or list
         - pm25_ugm3: float
-    
+
     Returns:
         - episode_detected: bool
         - threshold_used: float
@@ -48,8 +49,9 @@ def detect_pollution_episodes(
         aqi_val = item.get("aqi")
         ts = item.get("timestamp", "")
         if aqi_val is not None:
-            valid_points.append({"timestamp": ts, "aqi": float(aqi_val), "item": item})
-            
+            valid_points.append(
+                {"timestamp": ts, "aqi": float(aqi_val), "item": item})
+
     if not valid_points:
         return {
             "episode_detected": False,
@@ -64,9 +66,11 @@ def detect_pollution_episodes(
 
     # Check if episode threshold is breached
     episode_breached = (max_aqi >= threshold_aqi)
-    
+
     if not episode_breached:
-        hourly_statuses = [{"timestamp": pt["timestamp"], "status": "normal", "aqi": pt["aqi"]} for pt in valid_points]
+        hourly_statuses = [{"timestamp": pt["timestamp"],
+                            "status": "normal",
+                            "aqi": pt["aqi"]} for pt in valid_points]
         return {
             "episode_detected": False,
             "threshold_used": threshold_aqi,
@@ -85,17 +89,18 @@ def detect_pollution_episodes(
         if pt["aqi"] >= threshold_aqi:
             onset_idx = idx
             break
-            
+
     onset_ts = valid_points[onset_idx]["timestamp"] if onset_idx is not None else None
 
-    # Find recovery timestamp: first hour AFTER peak where AQI drops below threshold
+    # Find recovery timestamp: first hour AFTER peak where AQI drops below
+    # threshold
     peak_idx = valid_points.index(peak_point)
     recovery_idx = None
     for idx in range(peak_idx, len(valid_points)):
         if valid_points[idx]["aqi"] < threshold_aqi:
             recovery_idx = idx
             break
-            
+
     recovery_ts = valid_points[recovery_idx]["timestamp"] if recovery_idx is not None else None
 
     # Calculate duration
@@ -107,7 +112,7 @@ def detect_pollution_episodes(
     for idx, pt in enumerate(valid_points):
         ts = pt["timestamp"]
         aqi_val = pt["aqi"]
-        
+
         if aqi_val < threshold_aqi:
             status = "normal"
         elif idx == peak_idx:
@@ -120,8 +125,9 @@ def detect_pollution_episodes(
             status = "recovery"
         else:
             status = "onset"
-            
-        hourly_statuses.append({"timestamp": ts, "status": status, "aqi": aqi_val})
+
+        hourly_statuses.append(
+            {"timestamp": ts, "status": status, "aqi": aqi_val})
 
     # Extract dominant drivers at peak timestep
     peak_drivers = []

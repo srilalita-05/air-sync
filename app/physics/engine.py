@@ -10,16 +10,17 @@ from app.physics.box_model import integrate_box_model_step
 from app.physics.diagnostics import calculate_all_diagnostics, calculate_wind_components
 
 
-def estimate_pollutants(inp, previous: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+def estimate_pollutants(
+        inp, previous: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
     """Physics-informed baseline forecast step over a 1-hour interval (dt = 3600 s).
-    
+
     Uses dimensionally consistent mass-balance box modeling:
     - Advective flushing by surface wind
     - Planetary Boundary Layer volume dilution
     - Dry deposition on urban surfaces
     - Precipitation wet scavenging
     - Photochemical secondary formation (for O3 proxy)
-    
+
     Accepts Pydantic model or dict containing weather & initial pollution fields.
     """
     # Extract weather parameters with fallback defaults
@@ -31,18 +32,60 @@ def estimate_pollutants(inp, previous: Optional[Dict[str, float]] = None) -> Dic
     temp = float(getattr(inp, "temperature_c", 25.0))
     cloud = float(getattr(inp, "cloud_cover_pct", 0.0))
     fire = float(getattr(inp, "fire_influence", 0.0))
-    
+
     temp_surf = getattr(inp, "temp_surface_c", None)
     temp_upper = getattr(inp, "temp_upper_c", None)
     delta_z = getattr(inp, "delta_z_m", None)
-    
+
     # Anchors for initial state
-    pm25_init = float(getattr(inp, "pm25_ugm3", 80.0) if getattr(inp, "pm25_ugm3", None) is not None else 80.0)
-    pm10_init = float(getattr(inp, "pm10_ugm3", 120.0) if getattr(inp, "pm10_ugm3", None) is not None else 120.0)
-    o3_init = float(getattr(inp, "o3_ugm3", 45.0) if getattr(inp, "o3_ugm3", None) is not None else 45.0)
-    no2_init = float(getattr(inp, "no2_ugm3", 35.0) if getattr(inp, "no2_ugm3", None) is not None else 35.0)
-    so2_init = float(getattr(inp, "so2_ugm3", 15.0) if getattr(inp, "so2_ugm3", None) is not None else 15.0)
-    co_init = float(getattr(inp, "co_mgm3", 1.2) if getattr(inp, "co_mgm3", None) is not None else 1.2)
+    pm25_init = float(
+        getattr(
+            inp,
+            "pm25_ugm3",
+            80.0) if getattr(
+            inp,
+            "pm25_ugm3",
+            None) is not None else 80.0)
+    pm10_init = float(
+        getattr(
+            inp,
+            "pm10_ugm3",
+            120.0) if getattr(
+            inp,
+            "pm10_ugm3",
+            None) is not None else 120.0)
+    o3_init = float(
+        getattr(
+            inp,
+            "o3_ugm3",
+            45.0) if getattr(
+            inp,
+            "o3_ugm3",
+            None) is not None else 45.0)
+    no2_init = float(
+        getattr(
+            inp,
+            "no2_ugm3",
+            35.0) if getattr(
+            inp,
+            "no2_ugm3",
+            None) is not None else 35.0)
+    so2_init = float(
+        getattr(
+            inp,
+            "so2_ugm3",
+            15.0) if getattr(
+            inp,
+            "so2_ugm3",
+            None) is not None else 15.0)
+    co_init = float(
+        getattr(
+            inp,
+            "co_mgm3",
+            1.2) if getattr(
+            inp,
+            "co_mgm3",
+            None) is not None else 1.2)
 
     if previous:
         pm25_init = previous.get("pm25_ugm3", pm25_init)
@@ -53,16 +96,85 @@ def estimate_pollutants(inp, previous: Optional[Dict[str, float]] = None) -> Dic
         co_init = previous.get("co_mgm3", co_init)
 
     # Compute step updates via box model
-    step_pm25 = integrate_box_model_step(pm25_init, "pm25", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
-    step_pm10 = integrate_box_model_step(pm10_init, "pm10", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
-    step_o3 = integrate_box_model_step(o3_init, "o3", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
-    step_no2 = integrate_box_model_step(no2_init, "no2", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
-    step_so2 = integrate_box_model_step(so2_init, "so2", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
-    step_co = integrate_box_model_step(co_init, "co", wind_speed, pbl_h, precip, solar, temp, cloud, fire, no2_init)
+    step_pm25 = integrate_box_model_step(
+        pm25_init,
+        "pm25",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
+    step_pm10 = integrate_box_model_step(
+        pm10_init,
+        "pm10",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
+    step_o3 = integrate_box_model_step(
+        o3_init,
+        "o3",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
+    step_no2 = integrate_box_model_step(
+        no2_init,
+        "no2",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
+    step_so2 = integrate_box_model_step(
+        so2_init,
+        "so2",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
+    step_co = integrate_box_model_step(
+        co_init,
+        "co",
+        wind_speed,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        no2_init)
 
     diagnostics = calculate_all_diagnostics(
-        wind_speed, wind_dir, pbl_h, precip, solar, temp, cloud, fire, temp_surf, temp_upper, delta_z
-    )
+        wind_speed,
+        wind_dir,
+        pbl_h,
+        precip,
+        solar,
+        temp,
+        cloud,
+        fire,
+        temp_surf,
+        temp_upper,
+        delta_z)
 
     return {
         "pm25_ugm3": step_pm25["c_next"],

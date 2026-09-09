@@ -12,7 +12,11 @@ from app.data.providers import (
 
 def test_open_meteo_weather_provider():
     provider = OpenMeteoWeatherProvider()
-    timeline = provider.fetch_forecast(latitude=28.6139, longitude=77.2090, start_time_iso="2026-11-15T00:00:00Z", horizon_hours=24)
+    timeline = provider.fetch_forecast(
+        latitude=28.6139,
+        longitude=77.2090,
+        start_time_iso="2026-11-15T00:00:00Z",
+        horizon_hours=24)
     assert len(timeline) >= 24
     assert "temperature_c" in timeline[0]
     assert "pbl_height_m" in timeline[0]

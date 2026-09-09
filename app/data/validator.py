@@ -23,7 +23,7 @@ FALLBACK_DEFAULTS = {
 
 def validate_and_clean_input(raw_data: Dict[str, Any]) -> Dict[str, Any]:
     """Validates raw input dictionary, checking required fields and applying physical bounds checks.
-    
+
     Returns:
         - is_valid: bool
         - cleaned_data: dict
@@ -33,34 +33,36 @@ def validate_and_clean_input(raw_data: Dict[str, Any]) -> Dict[str, Any]:
     missing_required = []
     warnings = []
     cleaned = dict(raw_data)
-    
+
     for field in REQUIRED_METEOROLOGICAL_FIELDS:
         if field not in cleaned or cleaned[field] is None:
             missing_required.append(field)
-            
+
     # Impute non-critical optional defaults if missing
     for field, default_val in FALLBACK_DEFAULTS.items():
         if field not in cleaned or cleaned[field] is None:
             cleaned[field] = default_val
-            warnings.append(f"Optional variable '{field}' was missing; defaulted to {default_val}.")
-            
+            warnings.append(
+                f"Optional variable '{field}' was missing; defaulted to {default_val}.")
+
     # Range validations
     if "temperature_c" in cleaned and cleaned["temperature_c"] is not None:
         val = cleaned["temperature_c"]
         if val < -30.0 or val > 60.0:
             warnings.append(f"Unusual temperature value: {val} °C.")
-            
+
     if "relative_humidity" in cleaned and cleaned["relative_humidity"] is not None:
-        cleaned["relative_humidity"] = max(0.0, min(100.0, float(cleaned["relative_humidity"])))
-        
+        cleaned["relative_humidity"] = max(
+            0.0, min(100.0, float(cleaned["relative_humidity"])))
+
     if "wind_speed_ms" in cleaned and cleaned["wind_speed_ms"] is not None:
         cleaned["wind_speed_ms"] = max(0.0, float(cleaned["wind_speed_ms"]))
-        
+
     if "pbl_height_m" in cleaned and cleaned["pbl_height_m"] is not None:
         cleaned["pbl_height_m"] = max(20.0, float(cleaned["pbl_height_m"]))
 
     is_valid = (len(missing_required) == 0)
-    
+
     return {
         "is_valid": is_valid,
         "cleaned_data": cleaned,
