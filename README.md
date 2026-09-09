@@ -129,6 +129,9 @@ air-sync/
 │   └── js/app.js
 ├── tests/                      # Automated Pytest Test Suite
 ├── docs/                       # Technical & Architectural Documentation
+│   ├── PROJECT_ANALYSIS_AND_WORKFLOW.md  # Comprehensive Workflow, Formulas & Tech Stack
+│   ├── architecture.md                   # System Architecture & Component Interactions
+│   └── scientific_basis.md               # Physics Principles & Dimensional Details
 ├── .env.example                # API Key Configuration Template
 ├── .gitignore                  # Git Ignore Rules
 └── requirements.txt            # Python Dependencies
