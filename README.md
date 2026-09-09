@@ -230,87 +230,295 @@ AirSync operates via an end-to-end, multi-stage pipeline coupling atmospheric ph
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                       10. PRESENTATION & INTEGRATION LAYER                             │
 │  • FastAPI REST Backend (`/forecast/72h`, `/explain`, `/episode`, `/plume`, `/aqi`)    │
-│  • Web Dashboard: Interactive Leaflet.js Map + Chart.js 72h Curves + Diagnostics Grid   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+│  ## 📐 Mathematical & Physical Formulas Used
+
+AirSync combines atmospheric mass balance physics, diagnostic indicators, and machine learning error models. All formulas are presented below with readable text representations, standard math blocks, and physical unit definitions:
+
+---
+
+### 1. Atmospheric Mass-Balance Box Model (Continuity Equation)
+
+The time evolution of pollutant concentration $C$ within a well-mixed urban boundary layer of mixing height $H$ is governed by:
+
+```text
+  dC        E       U                    v_d
+ ──── =  ────── - ───── (C - C_bg)  -  ────── C  -  Λ(R)·C  +  P_chem
+  dt       H        L                     H
+ 
+ [Rate of   [Surface    [Advective           [Dry Deposition  [Rain Wet    [Photochemical
+  Change]    Emission]   Flushing Loss]       Loss]            Washout]     Production]
+```
+
+```math
+\frac{dC}{dt} = \frac{E}{H} - \frac{U}{L}(C - C_{bg}) - \frac{v_d}{H}C - \Lambda(R)C + P_{chem}
+```
+
+**Variable Definitions & Standard Units:**
+- `C` : Pollutant concentration $[\mu\text{g}/\text{m}^3]$
+- `E` : Surface urban emission flux $[\mu\text{g}/(\text{m}^2\cdot\text{s})]$
+- `H` : Planetary Boundary Layer mixing Height (PBLH) $[\text{m}]$
+- `U` : Surface wind speed $[\text{m}/\text{s}]$
+- `L` : Domain characteristic length scale ($50,000\text{ m}$ for Delhi-NCR)
+- `C_bg` : Background regional upwind concentration $[\mu\text{g}/\text{m}^3]$
+- `v_d` : Dry deposition velocity ($0.001\text{ m/s}$ for PM2.5, $0.005\text{ m/s}$ for PM10)
+- `Λ(R)` : Wet precipitation scavenging rate coefficient $[\text{s}^{-1}]$
+- `P_chem` : Photochemical ozone production proxy $[\mu\text{g}/(\text{m}^3\cdot\text{s})]$
+
+#### Discrete Analytical Solution over Timestep $\Delta t$:
+
+Because wind speed and mixing height are quasi-steady over an hourly integration step $\Delta t$, the differential equation solves analytically:
+
+```text
+  C(t + Δt) = C_eq + [ C(t) - C_eq ] · exp( -k_loss · Δt )
+
+  where:
+    k_loss  = (U / L) + (v_d / H) + Λ(R)         [Total loss coefficient, s⁻¹]
+    P_total = (E / H) + (U / L)·C_bg + P_chem     [Total volumetric source, μg/(m³·s)]
+    C_eq    = P_total / k_loss                   [Asymptotic steady-state concentration, μg/m³]
+```
+
+```math
+C(t + \Delta t) = C_{eq} + \left(C(t) - C_{eq}\right) \cdot e^{-k_{loss} \cdot \Delta t}
 ```
 
 ---
 
-## 🛠️ Tech Stack & Library Importance
+### 2. Atmospheric Ventilation & Meteorological Diagnostics
 
-| Category | Technology / Library | Version / Spec | Critical Importance & Architectural Role in AirSync |
-| :--- | :--- | :--- | :--- |
-| **Backend Framework** | `FastAPI` | `>=0.115.0` | Provides high-performance, asynchronous REST API endpoints with native Pydantic validation, automatic OpenAPI/Swagger documentation (`/docs`), and fast response times for real-time forecasting. |
-| **ASGI Server** | `Uvicorn` | `>=0.30.0` | Production-grade ASGI web server that powers FastAPI with event-loop concurrency, enabling parallel handling of multiple forecast queries and simulation workloads. |
-| **Data Validation** | `Pydantic` | `>=2.0.0` | Enforces strict type schemas and physical boundaries on meteorological inputs, CPCB measurements, and API payloads; rejects corrupted or nonsensical atmospheric data. |
-| **Numerical Computing** | `NumPy` | `>=1.26.0` | High-speed vectorized computations for wind vector decomposition ($u, v$), trigonometric diurnal cyclic features ($\sin/\cos$), exponential plume diffusion, and array manipulations. |
-| **Data Manipulation** | `Pandas` | `>=2.0.0` | Manages time-series data structures, chronological data splits (training/validation/testing), feature matrix assembly, and dataset ingestion for model training. |
-| **Machine Learning** | `XGBoost` | `>=2.0.0` | Primary Stage 2 gradient-boosted decision tree algorithm. Learns non-linear atmospheric residuals $e(t) = C_{obs}(t) - C_{phys}(t)$ without overfitting, capturing complex local microclimate deviations. |
-| **Machine Learning** | `Scikit-Learn` | `>=1.5.0` | Provides fallback gradient boosting (`HistGradientBoostingRegressor`), evaluation metrics (`MAE`, `RMSE`, $R^2$), and train/test splitting utilities. |
-| **Model Persistence** | `Joblib` | `>=1.4.0` | Serializes trained machine learning models (`model_pm25.pkl`, `model_pm10.pkl`, `model_o3.pkl`) and evaluation metadata to disk, allowing instant model loading during server startup. |
-| **Scientific Routines** | `SciPy` | `>=1.10.0` | Supplies mathematical optimization, scientific functions, and spatial calculation utilities for atmospheric dispersion and regression modeling. |
-| **HTTP Clients** | `Requests` & `HTTPX` | `>=2.30.0` / `>=0.27.0` | Facilitates reliable synchronous and asynchronous HTTP requests to external APIs (Open-Meteo, NASA FIRMS fire API, Copernicus ERA5 reanalysis). |
-| **Testing Framework** | `Pytest` | `>=8.0.0` | Comprehensive automated test suite ensuring physical constraints, zero-leakage ML pipeline, AQI breakpoints, episode state machine, and REST routes are bug-free. |
-| **Frontend Core** | `HTML5` & `Vanilla CSS3` | Modern Standards | Ultra-fast, lightweight user interface without heavy build steps. Features dark mode, glassmorphism, responsive grid layouts, and clean typography via Google Fonts (Inter & Outfit). |
-| **Frontend Logic** | `Vanilla JavaScript` | ES6+ | Lightweight asynchronous client that queries FastAPI endpoints, manipulates DOM elements in real-time, and handles interactive user inputs without framework bloat. |
-| **GIS Mapping** | `Leaflet.js` | `1.9.4` | Interactive mobile-friendly map rendering Delhi-NCR monitoring stations, NASA FIRMS fire hotspots, wind directional vectors, and animated biomass plume dispersion envelopes. |
-| **Data Visualization** | `Chart.js` | Latest CDN | Interactive, hardware-accelerated canvas charts displaying 72-hour hourly forecasts, comparing Stage 1 Physics baselines against Stage 2 ML-corrected outputs, and visualizing AQI category thresholds. |
+#### A. Ventilation Coefficient ($VC$)
+Measures the atmosphere's capacity to disperse and dilute surface emissions:
+
+```text
+  VC = Wind_Speed (U) × Boundary_Layer_Height (H)    [m²/s]
+```
+
+```math
+VC = U \times H \quad [\text{m}^2/\text{s}]
+```
+
+- `VC < 800 m²/s` : **Severe Stagnation** (dangerous local pollutant accumulation)
+- `VC < 1500 m²/s` : **Poor Ventilation** (inadequate dispersal conditions)
+- `VC > 5000 m²/s` : **Strong Dispersion** (rapid clean atmospheric flushing)
+
+#### B. Wet Scavenging Washout Rate ($\Lambda(R)$)
+Quantifies the removal of particulate matter by falling raindrops:
+
+```text
+  Λ(R) = a · R^b    [s⁻¹]
+```
+
+```math
+\Lambda(R) = a \cdot R^b \quad [\text{s}^{-1}]
+```
+
+- `R` : Precipitation rate $[\text{mm/h}]$
+- `a` : Empirical washout coefficient ($1.0 \times 10^{-4}$ for PM2.5 / PM10)
+- `b` : Washout power exponent ($0.8$)
+- When $R = 0$, $\Lambda = 0$ (no wet removal).
+
+#### C. Meteorological Wind Vector Components ($u, v$)
+Decomposes wind speed $U$ and direction $\theta$ (direction *from which* wind blows) into Cartesian velocities:
+
+```text
+  u_east  = -U · sin( θ × π / 180 )    [Zonal velocity, m/s]
+  v_north = -U · cos( θ × π / 180 )    [Meridional velocity, m/s]
+```
+
+```math
+u = -U \cdot \sin(\theta), \qquad v = -U \cdot \cos(\theta)
+```
+
+#### D. Atmospheric Thermal Inversion Condition
+Requires verified vertical temperature profile data (e.g. radiosonde sounding or multi-level reanalysis):
+
+```text
+       T_upper - T_surface
+  Γ = ─────────────────────    [Thermal Lapse Rate, °C / 100m]
+            Δz / 100
+
+  Inversion Layer Confirmed  ⟺  Γ > 0   (Temperature increases with height)
+```
+
+```math
+\Gamma = \frac{T_{upper} - T_{surface}}{\Delta z / 100} \quad [^{\circ}\text{C}/100\text{m}], \qquad \text{Inversion} \iff \Gamma > 0
+```
+
+#### E. Photochemical Ozone ($O_3$) Production Proxy
+Simplified daylight photochemical formation parameterization:
+
+```text
+  P_chem = 0.005 × (Solar / 1000) × ((Temp - 15) / 25) × (1 - 0.8 · Cloud/100) × f_NO2
+```
+
+```math
+P_{chem} = 0.005 \times \left(\frac{R_{solar}}{1000}\right) \times \left(\frac{T - 15}{25}\right) \times \left(1 - 0.8 \cdot \frac{\text{Cloud}\%}{100}\right) \times \min\left(2.0, \max\left(0.2, \frac{[\text{NO}_2]}{40}\right)\right)
+```
+*(Condition: active only during daylight where $R_{solar} > 5\text{ W/m}^2$ and $T > 5^\circ\text{C}$)*
 
 ---
 
-## 📐 Mathematical & Physical Formulas Used
+### 3. Kinematic Biomass Smoke Plume & Dispersion Envelope
 
-AirSync is built upon rigorous atmospheric physics combined with official regulatory formulas and machine learning error formulations:
+#### A. 2D Downwind Plume Trajectory
+Calculates horizontal transport of stubble fire smoke from origin $(Lat_{fire}, Lon_{fire})$ towards Delhi-NCR:
 
-### 1. Atmospheric Mass-Balance Box Model (Continuity Equation)
-The concentration of pollutant $C$ over time inside a well-mixed urban boundary layer of height $H$ is governed by:
+```text
+  Flow Direction : φ = (Wind_Direction + 180°) mod 360°
+  Displacement   : Δx = U · sin(φ) · t   (Eastward, meters)
+                   Δy = U · cos(φ) · t   (Northward, meters)
 
-$$\frac{dC}{dt} = \frac{E}{H} - \frac{U}{L}(C - C_{bg}) - \frac{v_d}{H}C - \Lambda(R)C + P_{chem}$$
+  Coordinates    : Latitude(t)  = Lat_fire + ( Δy / 111,000 )
+                   Longitude(t) = Lon_fire + ( Δx / (111,000 · cos(Lat_fire)) )
+```
 
-Where:
-- $C$ = Pollutant concentration $[\mu\text{g}/\text{m}^3]$
-- $E$ = Surface urban emission flux rate $[\mu\text{g}/(\text{m}^2\cdot\text{s})]$
-- $H$ = Planetary Boundary Layer mixing Height (PBLH) $[\text{m}]$
-- $U$ = Surface wind speed $[\text{m}/\text{s}]$
-- $L$ = Characteristic domain length scale $[\text{m}]$ (Delhi-NCR $\approx 50,000\text{ m}$)
-- $C_{bg}$ = Background upwind concentration $[\mu\text{g}/\text{m}^3]$
-- $v_d$ = Dry deposition velocity $[\text{m}/\text{s}]$ ($\approx 0.001\text{ m/s}$ for PM2.5, $0.005\text{ m/s}$ for PM10)
-- $\Lambda(R)$ = Wet precipitation scavenging rate $[\text{s}^{-1}]$
-- $P_{chem}$ = Photochemical production proxy rate $[\mu\text{g}/(\text{m}^3\cdot\text{s})]$
+```math
+\Delta x = U \cdot \sin(\phi) \cdot t, \qquad \Delta y = U \cdot \cos(\phi) \cdot t
+```
 
-#### Discrete Analytical Solution over Timestep $\Delta t$:
-Combining total volumetric production $P_{total}$ and first-order loss rate $k_{loss}$:
-$$k_{loss} = \frac{U}{L} + \frac{v_d}{H} + \Lambda(R)$$
-$$P_{total} = \frac{E}{H} + \frac{U}{L}C_{bg} + P_{chem}$$
-$$\text{Equilibrium Concentration: } C_{eq} = \frac{P_{total}}{k_{loss}}$$
-$$C(t + \Delta t) = C_{eq} + \left(C(t) - C_{eq}\right) \cdot e^{-k_{loss} \cdot \Delta t}$$
+#### B. Expanding Gaussian Plume Diffusion Radius ($\sigma_r$)
+Calculates horizontal plume growth due to atmospheric turbulent eddy diffusivity:
+
+```text
+  σ_r(t) = √( σ_0² + 2 · K_y · t )    [meters]
+```
+
+```math
+\sigma_r(t) = \sqrt{\sigma_0^2 + 2 \cdot K_y \cdot t}
+```
+
+- `σ_0` : Initial thermal buoyant radius $= 500\text{ m} + \min(500, \text{FRP} \times 5)$
+- `FRP` : Fire Radiative Power $[\text{MW}]$ from NASA FIRMS satellite
+- `K_y` : Horizontal turbulent eddy diffusivity ($\approx 50\text{ m}^2/\text{s}$)
+- `t` : Downwind travel time $[\text{seconds}]$
+
+#### C. Downwind Receptor Proximity Influence Score
+Evaluates the potential impact score $[0.0 - 1.0]$ of smoke arriving at a receptor (Delhi):
+
+```text
+  S_influence = exp[ -0.5 · ( d_min / σ_effective )² ] × [ 0.4 + 0.6 · min(1.0, FRP / 200) ]
+```
+
+```math
+S_{influence} = \exp\left(-\frac{1}{2}\left(\frac{d_{min}}{\max(2000, \sigma_r)}\right)^2\right) \cdot \left(0.4 + 0.6 \cdot \min\left(1.0, \frac{\text{FRP}}{200}\right)\right)
+```
 
 ---
 
-### 2. Atmospheric Ventilation & Dispersion Diagnostics
+### 4. Official Indian CPCB Air Quality Index (AQI)
 
-- **Ventilation Coefficient ($VC$):**
-  $$VC = U \times H \quad \left[\text{m}^2/\text{s}\right]$$
-  - $VC < 800\text{ m}^2/\text{s}$: **Severe Stagnation** (high accumulation hazard)
-  - $VC < 1500\text{ m}^2/\text{s}$: **Poor Ventilation** (inadequate dispersal)
-  - $VC > 5000\text{ m}^2/\text{s}$: **Strong Dispersion** (rapid clean atmospheric flushing)
+Each individual pollutant concentration $C_p$ is converted into an AQI sub-index $I_p$ via linear interpolation across regulatory breakpoints:
+
+```text
+          (I_high - I_low)
+  I_p = ──────────────────── × (C_p - C_low) + I_low
+          (C_high - C_low)
+```
+
+```math
+I_p = I_{low} + \frac{I_{high} - I_{low}}{C_{high} - C_{low}} \times (C_p - C_{low})
+```
+
+The overall air quality index is governed by the highest individual sub-index:
+
+```text
+  Overall AQI = MAX( I_PM2.5, I_PM10, I_O3, I_NO2, I_SO2, I_CO, I_NH3, I_Pb )
+```
+
+```math
+\text{Overall AQI} = \max\left(I_{\text{PM2.5}}, I_{\text{PM10}}, I_{\text{O3}}, I_{\text{NO2}}, I_{\text{SO2}}, I_{\text{CO}}, I_{\text{NH3}}, I_{\text{Pb}}\right)
+```
+
+| CPCB Category | AQI Breakpoint Range | Hex Color | Health Impact Description |
+| :--- | :---: | :---: | :--- |
+| **Good** | 0 – 50 | `#009966` | Minimal health impact |
+| **Satisfactory** | 51 – 100 | `#55a84f` | Minor breathing discomfort to sensitive individuals |
+| **Moderate** | 101 – 200 | `#a3c639` | Breathing discomfort to people with lungs, asthma, and heart conditions |
+| **Poor** | 201 – 300 | `#fff833` | Breathing discomfort to most people on prolonged exposure |
+| **Very Poor** | 301 – 400 | `#f29c33` | Respiratory illness on prolonged exposure |
+| **Severe** | 401 – 500 | `#e93f33` | Serious health impact on healthy people and vulnerable groups |
+
+---
+
+### 5. Stage 2 Machine Learning Residual Correction Formulation
+
+#### A. Residual Error Target ($e$)
+The model learns systematic biases between ground measurements and physical box approximations:
+
+```text
+  e(t) = C_observed(t) - C_physics(t)
+```
+
+```math
+e(t) = C_{observed}(t) - C_{physics}(t)
+```
+
+#### B. Final Corrected Forecast
+Combined non-negative concentration forecast:
+
+```text
+  C_final(t) = MAX( 0,  C_physics(t) + e_predicted(t) )
+```
+
+```math
+C_{final}(t) = \max\left(0, \; C_{physics}(t) + \hat{e}(t)\right)
+```
+
+#### C. Model Validation Performance Metrics
+Evaluated on holdout test sets without lookahead leakage:
+
+```text
+  Mean Absolute Error (MAE) :
+  MAE = (1 / N) · Σ | y_i - ŷ_i |
+
+  Root Mean Squared Error (RMSE) :
+  RMSE = √[ (1 / N) · Σ ( y_i - ŷ_i )² ]
+
+  Coefficient of Determination (R²) :
+  R² = 1 - [ Σ ( y_i - ŷ_i )² ] / [ Σ ( y_i - y_mean )² ]
+```
+
+```math
+\text{MAE} = \frac{1}{N} \sum_{i=1}^N \left| y_i - \hat{y}_i \right|
+```
+
+```math
+\text{RMSE} = \sqrt{\frac{1}{N} \sum_{i=1}^N \left( y_i - \hat{y}_i \right)^2}
+```
+
+```math
+R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}
+```
+
+---
+
+### Quick Reference — Key Equations (Compact)
 
 - **Wet Deposition Rain Scavenging Rate:**
-  $$\Lambda(R) = a \cdot R^b \quad \left[\text{s}^{-1}\right]$$
-  where $R$ is the rainfall intensity in $\text{mm/h}$, $a = 1.0 \times 10^{-4}$, and $b = 0.8$.
+
+$$\Lambda(R) = a \cdot R^b \quad [\text{s}^{-1}]$$
+
+  where $R$ is the rainfall intensity in mm/h, $a = 1.0 \times 10^{-4}$, and $b = 0.8$.
 
 - **Meteorological Wind Vector Decomposition:**
   Wind direction $\theta$ is defined as the direction **from which** the wind blows:
-  $$u_{east} = -U \cdot \sin\left(\frac{\pi}{180} \theta\right)$$
-  $$v_{north} = -U \cdot \cos\left(\frac{\pi}{180} \theta\right)$$
+
+$$u_{east} = -U \cdot \sin\left(\frac{\pi}{180} \theta\right)$$
+
+$$v_{north} = -U \cdot \cos\left(\frac{\pi}{180} \theta\right)$$
 
 - **Atmospheric Thermal Inversion Condition:**
   Confirmed **only** when vertical temperature profile data is available:
-  $$\Gamma = \frac{T_{upper} - T_{surface}}{\Delta z / 100} \quad \left[^\circ\text{C}/100\text{m}\right]$$
-  $$\text{Inversion Confirmed} \iff \Gamma > 0 \quad \left(\frac{\partial T}{\partial z} > 0\right)$$
+
+$$\Gamma = \frac{T_{upper} - T_{surface}}{\Delta z / 100} \quad \left[^\circ\text{C}/100\text{m}\right]$$
+
+$$\text{Inversion Confirmed} \iff \Gamma > 0 \quad \left(\frac{\partial T}{\partial z} > 0\right)$$
 
 - **Photochemical Ozone Production Proxy ($P_{chem}$):**
-  $$P_{chem} = P_{max} \cdot \left(\frac{R_{solar}}{1000}\right) \cdot \left(\frac{T - 15}{25}\right) \cdot \left(1 - 0.8 \cdot \frac{\text{Cloud}\%}{100}\right) \cdot \min\left(2.0, \max\left(0.2, \frac{[\text{NO}_2]}{40}\right)\right)$$
+
+```math
+P_{chem} = P_{max} \cdot \left(\frac{R_{solar}}{1000}\right) \cdot \left(\frac{T - 15}{25}\right) \cdot \left(1 - 0.8 \cdot \frac{\text{Cloud}\%}{100}\right) \cdot \min\left(2.0, \max\left(0.2, \frac{[\text{NO}_2]}{40}\right)\right)
+```
+
   (Active only when $R_{solar} > 5\text{ W/m}^2$ and $T > 5^\circ\text{C}$).
 
 ---
@@ -319,15 +527,24 @@ $$C(t + \Delta t) = C_{eq} + \left(C(t) - C_{eq}\right) \cdot e^{-k_{loss} \cdot
 
 - **Downwind Displacement over time $t$:**
   Flow heading $\phi = (\theta + 180^\circ) \pmod{360^\circ}$
-  $$\Delta x = U \cdot \sin(\phi) \cdot t, \quad \Delta y = U \cdot \cos(\phi) \cdot t$$
-  $$\text{Latitude}(t) = \text{Lat}_{fire} + \frac{\Delta y}{111,000}, \quad \text{Longitude}(t) = \text{Lon}_{fire} + \frac{\Delta x}{111,000 \cdot \cos(\text{Lat}_{fire})}$$
+
+$$\Delta x = U \cdot \sin(\phi) \cdot t, \quad \Delta y = U \cdot \cos(\phi) \cdot t$$
+
+```math
+\text{Latitude}(t) = \text{Lat}_{fire} + \frac{\Delta y}{111,000}, \quad \text{Longitude}(t) = \text{Lon}_{fire} + \frac{\Delta x}{111,000 \cdot \cos(\text{Lat}_{fire})}
+```
 
 - **Expanding Gaussian Horizontal Diffusion Radius:**
-  $$\sigma_r(t) = \sqrt{\sigma_0^2 + 2 \cdot K_y \cdot t}$$
+
+$$\sigma_r(t) = \sqrt{\sigma_0^2 + 2 \cdot K_y \cdot t}$$
+
   where initial thermal plume radius $\sigma_0 = 500\text{ m} + \min(500, \text{FRP} \times 5)$ and horizontal eddy diffusivity $K_y \approx 50\text{ m}^2/\text{s}$.
 
 - **Downwind Receptor Proximity Influence Score:**
-  $$S_{influence} = \exp\left(-\frac{1}{2}\left(\frac{d_{min}}{\max(2000, \sigma_r)}\right)^2\right) \cdot \left(0.4 + 0.6 \cdot \min\left(1.0, \frac{\text{FRP}}{200}\right)\right)$$
+
+```math
+S_{influence} = \exp\left(-\frac{1}{2}\left(\frac{d_{min}}{\max(2000, \sigma_r)}\right)^2\right) \cdot \left(0.4 + 0.6 \cdot \min\left(1.0, \frac{\text{FRP}}{200}\right)\right)
+```
 
 ---
 
@@ -363,9 +580,12 @@ The dominant pollutant is the species yielding the maximum sub-index.
   $$C_{final}(t) = \max\left(0, \; C_{physics}(t) + \hat{e}(t)\right)$$
 
 - **Model Evaluation Performance Metrics:**
-  $$\text{Mean Absolute Error (MAE)} = \frac{1}{N} \sum_{i=1}^N \left| y_i - \hat{y}_i \right|$$
-  $$\text{Root Mean Squared Error (RMSE)} = \sqrt{\frac{1}{N} \sum_{i=1}^N \left( y_i - \hat{y}_i \right)^2}$$
-  $$\text{Coefficient of Determination } (R^2) = 1 - \frac{\sum_{i=1}^N \left(y_i - \hat{y}_i\right)^2}{\sum_{i=1}^N \left(y_i - \bar{y}\right)^2}$$
+
+$$\text{Mean Absolute Error (MAE)} = \frac{1}{N} \sum_{i=1}^N \left| y_i - \hat{y}_i \right|$$
+
+$$\text{Root Mean Squared Error (RMSE)} = \sqrt{\frac{1}{N} \sum_{i=1}^N \left( y_i - \hat{y}_i \right)^2}$$
+
+$$\text{Coefficient of Determination } (R^2) = 1 - \frac{\sum_{i=1}^N \left(y_i - \hat{y}_i\right)^2}{\sum_{i=1}^N \left(y_i - \bar{y}\right)^2}$$
 
 ---
 
